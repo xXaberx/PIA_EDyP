@@ -1,0 +1,391 @@
+import sys
+import random
+import datetime
+import os
+import openpyxl
+import sqlite3
+from sqlite3 import Error
+
+
+
+clientes={}
+salas={}
+diccionario_eventos={}
+eventos=()
+path='E:\fernando\programacion3'
+libro= openpyxl.Workbook()
+libro.iso_dates= True
+hoja = libro['Sheet']
+hoja.title='1'
+
+if os.path.exists('Evidencia3.db'):
+    try:
+        datos_clientes=dict()
+        with sqlite3.connect("Evidencia3.db") as conn:
+            mi_cursor = conn.cursor()
+            mi_cursor.execute("SELECT * FROM clientes ORDER BY matricula")
+            registros = mi_cursor.fetchall()
+            if registros:
+                for matricula,cliente in registros:
+                    datos_clientes[int(matricula)]= cliente
+                    clientes=datos_clientes
+
+    except Error as e:
+        print (e)
+    except Exception:
+        print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+    finally:
+        conn.close()
+    
+    try:
+        datos_lectura=dict()
+        with sqlite3.connect("Evidencia3.db") as conn:
+            mi_cursor = conn.cursor()
+            mi_cursor.execute("SELECT * FROM salas ORDER BY clave_sala")
+            registros = mi_cursor.fetchall()
+            if registros:
+                for clave_sala,nom,cupo in registros:
+                    datos_lectura[int(clave_sala)] = nom,cupo 
+                salas=datos_lectura
+    except Error as e:
+        print (e)
+    except Exception:
+        print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+    finally:
+        conn.close()
+    
+    try:
+        datos_eventos=dict()
+        with sqlite3.connect("Evidencia3.db") as conn:
+            mi_cursor = conn.cursor()
+            mi_cursor.execute("SELECT *  FROM eventos ORDER BY clave")
+            registros = mi_cursor.fetchall()            
+            if registros:
+                for clave,nombre_eventos,fechap,no_sala,Cliente,turno in registros:
+                    fechap=datetime.datetime.strptime(fechap, "%Y-%m-%d").date()
+                    datos_eventos[int(clave)]= nombre_eventos,fechap,no_sala,int(Cliente),turno
+                diccionario_eventos=datos_eventos 
+    
+                    
+    except Error as e:
+        print (e)
+    except Exception:
+        print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+    finally:
+        conn.close()
+
+
+else:
+    print("No es posible recuperar datos")
+    
+
+try:
+    with sqlite3.connect("Evidencia3.db") as conn:
+        mi_cursor = conn.cursor()
+        mi_cursor.execute("CREATE TABLE IF NOT EXISTS clientes (matricula INTEGER PRIMARY KEY, cliente TEXT NOT NULL);")
+        mi_cursor.execute("CREATE TABLE IF NOT EXISTS salas (clave_sala INTEGER PRIMARY KEY, nom TEXT NOT NULL,cupo TEXT NOT NULL);")
+        mi_cursor.execute("CREATE TABLE IF NOT EXISTS eventos (clave INTEGER PRIMARY KEY, nombre_eventos TEXT NOT NULL,fecha timestamp ,salas INTEGER, clientes INTEGER, turno TEXT NOT NULL, FOREIGN KEY(salas) REFERENCES salas(clave_salas),FOREIGN KEY(clientes) REFERENCES clientes(matricula));")
+        mi_cursor.execute("CREATE TABLE IF NOT EXISTS turnos(Turnos TEXT NOT NULL PRIMARY KEY);")
+        Turno1=("M",)
+        mi_cursor.execute("INSERT OR IGNORE INTO turnos  VALUES(?)", Turno1)
+        Turno2=("V",)
+        mi_cursor.execute("INSERT OR IGNORE INTO turnos  VALUES(?)", Turno2)
+        Turno3=("N",)
+        mi_cursor.execute("INSERT OR IGNORE INTO turnos  VALUES(?)", Turno3)
+        
+except Error as e:
+    print (e)
+except:
+    print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+finally:
+    conn.close()
+
+while True:
+    print("Le damos la bienvenida, elija una de nuestras opciones de menú"
+    """
+    1:Reservaciones
+    2:Reportes
+    3:Registro de sala
+    4:Registro de un cliente
+    5:Salir
+    """)
+    orden=input("¿Qué operacion desea revisar\n")
+    
+    if orden=="1":
+        print("""   
+    A:Registrar una nueva reservacion
+    B:Modificar una reservacion
+    C:Consultar la disponibilidad de una sala para una fecha
+    D:Eliminar una reservacion
+    E:Volver 
+        """)
+        reservaciones=input("¿Que desea realizar con las reservaciones?\n")
+        if reservaciones == "A":
+            print(clientes)
+            cliente=int(input("Elija su clave de cliente\n"))
+            if cliente in clientes:        
+                fecha_actual=datetime.date.today()
+                #de aqui el codigo de alpha        
+                clave=max(list(diccionario_eventos.keys()),default=3)+1
+                nombre_evento=input("Nombre del evento\n")
+                turno=input("Seleccione el turno M/V/N\n")
+                print(salas)
+                registro_sala=int(input("¿En que sala desea registrar su evento?\n"))
+                print("Si despues de este aviso no pide la fecha la sala no existe")
+                #de vuelta al codigo original
+                try:
+                    if turno != "M" and turno !="V" and turno != "N":
+                        print("seleccione un turno valido")
+                    else:                                    
+                        for clave_salas in salas.items():
+                            if registro_sala != clave_salas[0]:
+                                print("")
+                            else:
+                                fecha=input("Que fecha desea que sea su evento? (a/m/d): \n")
+                                fechap = datetime.datetime.strptime(fecha, "%Y-%m-%d").date()
+                                cant_dias = 2
+                                dia=fecha_actual.day
+                                dia_n=fechap.day
+                                eventos=(nombre_evento,fechap,registro_sala,cliente,turno)
+                                if fechap < fecha_actual:
+                                    print("La fecha que usted puso no se encuentra disponible")
+                                else:
+                                    if fecha_actual + datetime.timedelta(days=+cant_dias) <= fechap:
+                                       fecha_reservada = ""
+                                       turno_reservado = ""
+                                       for clave,valor in diccionario_eventos.items():                                            
+                                           if fechap == valor[1] and turno == valor[4] and registro_sala==valor[2]:
+                                               fecha_reservada = valor[1]
+                                               turno_reservado = valor[4]
+                                               sala_reservada  = valor[2]
+                                       if fechap == fecha_reservada and turno == turno_reservado and registro_sala == sala_reservada:
+                                           print("Ya existe una reservacion en ese turno,Favor de intentar en otro Turno:")
+                                        
+                                       else:
+                                           if fecha_actual + datetime.timedelta(days=+cant_dias) >= fechap: 
+                                               print("Se debe hacer una reservacion al menos 2 dias antes de su evento")
+                                           else:
+                                               clave=max(list(diccionario_eventos.keys()),default=3)+1
+                                               diccionario_eventos[clave] = eventos
+                                               try:
+                                                   with sqlite3.connect("Evidencia3.db") as conn:
+                                                       mi_cursor = conn.cursor()
+                                                       Eventos=(clave,nombre_evento,fechap,registro_sala,cliente,turno)
+                                                       mi_cursor.execute("INSERT INTO eventos VALUES(?,?,?,?,?,?)", Eventos)
+                                                       print("Registro agregado exitosamente")
+                                               except Error as e:
+                                                   print (e)
+                                               except:
+                                                   print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+                                               finally:
+                                                   conn.close()
+                                    else:
+                                        if fecha_actual + datetime.timedelta(days=+cant_dias) >= fechap: 
+                                            print("Se debe hacer una reservacion al menos 2 dias antes de su evento")
+                                                                           
+                                                                    
+                except Exception:
+                    print("El formato de la fecha no es valido")
+            else:
+                print("necesita ser cliente para reservar una sala")
+                
+        if reservaciones=="B":
+            clave=int(input("seleccione la clave que cambiara"))
+            nuevo=input("seleccione un nombre nuevo para la reservacion")
+            try:
+                with sqlite3.connect("Evidencia3.db", detect_types = sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES) as conn:
+                    mi_cursor = conn.cursor()
+                    criterios = {"clave":clave,"nombre":nuevo}
+                    mi_cursor.execute("UPDATE eventos SET nombre_eventos=:nombre WHERE clave=:clave;",criterios)                    
+            except Error as e:
+                print (e)
+            except:
+                print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+            finally:
+                conn.close()
+                
+        if reservaciones=="C":
+            fecha=input(f"Escriba la fecha que desea verificar a-m-d\n")
+            fecha=datetime.datetime.strptime(fecha, "%Y-%m-%d").date()
+            try:
+                with sqlite3.connect("Evidencia3.db", detect_types = sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES) as conn:
+                    mi_cursor = conn.cursor()
+                    mi_cursor.execute("SELECT clave_sala,nom,Turnos FROM salas  JOIN turnos")
+                    registros = mi_cursor.fetchall()
+                    posibles=set(registros)                    
+                    criterios = {"fecha":fecha}
+                    mi_cursor.execute("SELECT salas,nom,turno FROM eventos JOIN 'salas' WHERE DATE(fecha) = :fecha;", criterios)
+                    registro = mi_cursor.fetchall()
+                    ocupados=set(registro)
+                    disponibles=posibles-ocupados
+                    lista_disponible=list(disponibles)
+                    lista_disponible.sort()
+                    print(f"**\tReporte del dia {fecha}\t **")
+                    print("salas\t nombre de la sala \t Turnos")
+                    for sala,nom,turno in lista_disponible:
+                        print(sala,'          ',nom,'               ',turno)
+                    
+                    
+                    
+            except Error as e:
+                print (e)
+            except:
+                print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+            finally:
+                conn.close()
+             
+        
+        
+        if reservaciones=="D":
+            clave_E=int(input("¿que  clave desea eliminar?"))
+            try:
+                with sqlite3.connect("Evidencia3.db") as conn:
+                    mi_cursor = conn.cursor()
+                    criterios = {"clave":clave_E}
+                    mi_cursor.execute("SELECT * FROM eventos WHERE clave=:clave",criterios)
+                    registros = mi_cursor.fetchall()
+                    if registros==[]:
+                        print("esta clave no existe en la base de datos")
+                    else:
+                        print(registros)
+                        res=input("esta seguro que desea borrar esto de la base de datos? Esto no se podra deshacer\n")
+                        if res == "si":
+                            cant_dias = 3
+                            fecha_actual=datetime.date.today()
+                            for valor in registros:
+                                fecha=datetime.datetime.strptime(valor[2], "%Y-%m-%d").date()
+                                if fecha_actual + datetime.timedelta(days=+cant_dias) < fecha:
+                                    try:
+                                        with sqlite3.connect("Evidencia3.db") as conn:
+                                            mi_cursor = conn.cursor()
+                                            criterios = {"clave":clave_E}
+                                            mi_cursor.execute("DELETE  FROM eventos WHERE clave=:clave;",criterios)                    
+                                    except Error as e:
+                                        print (e)
+                                    except:
+                                        print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+                                    finally:
+                                        conn.close() 
+                                else:
+                                    print("solo se pueden borrar datos con fechas 3 dias despues")
+                                
+                                
+            except Error as e:
+                print (e)
+            except:
+                print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+            finally:
+                conn.close()    
+            
+     
+            
+
+        
+    
+    if orden=="2":
+        print("""
+    A:Mostrar el reporte tabular
+    B:Exportar el reporte tabular
+    C:Volver
+        """)
+        reportes=input("¿Que desea realizar con los reportes?\n")
+        if reportes == "A":
+            fecha_consulta=input("Ingrese la fecha que quiera verificar A-M-D\n")
+            fecha_procesada=datetime.datetime.strptime(fecha_consulta, "%Y-%m-%d").date()
+            try:
+                with sqlite3.connect("Evidencia3.db", detect_types = sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES) as conn:
+                    mi_cursor = conn.cursor()
+                    criterios = {"fecha":fecha_procesada}
+                    mi_cursor.execute("SELECT salas, clientes, nombre_eventos,turno FROM eventos WHERE DATE(fecha) = :fecha;", criterios)
+                    registros = mi_cursor.fetchall()
+                    print("*"*50)
+                    print(f"**\tReporte del dia {fecha_procesada}\t **")
+                    print("*"*50)
+                    print("no_sala     clave del clientes    Nombre del evento     Turno ")
+                    print("*"*50)
+                    for salas, clientes, nombre_eventos,turno  in registros:
+                        print(salas,"               ",clientes,"            ",nombre_eventos,"            ",turno)
+                    print(f"**\t FIN DEL REPORTE \t **")
+                                     
+            except sqlite3.Error as e:
+                print (e)
+            except Exception:
+                print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+            finally:
+                if (conn):
+                    conn.close()
+                    print("Se ha cerrado la conexión")
+        
+        if reportes=="B":
+            lista_reservas=list(diccionario_eventos.items())
+            fecha_consulta=input("Ingrese la fecha del reporte que quiere exportar a excel AAAA-MM-DDD\n")
+            fecha_procesada=datetime.datetime.strptime(fecha_consulta, "%Y-%m-%d").date()
+            hoja['B1'].value=f'Reporte tabular del dia {fecha_procesada}'
+            hoja['B3'].value='no_sala'
+            hoja['C3'].value='clave del cliente'
+            hoja['D3'].value='Nombre del evento'
+            hoja['E3'].value='Turno'
+            for clave,valor in lista_reservas:
+                if valor[1] == fecha_procesada:
+                    hoja.cell(row=clave, column=2).value = valor[2]
+                    hoja.cell(row=clave, column=3).value = valor[3]
+                    hoja.cell(row=clave, column=4).value = valor[0]
+                    hoja.cell(row=clave, column=5).value = valor[4]
+                    
+            libro.save('libro_luna_de_pluton.xlsx')
+        else:
+            print("Seleccione una opción valida")
+            
+        
+     
+    if orden=="3":
+        clave_sala=max(list(salas.keys()),default=0)+1
+        nom=input("Escriba el nombre de la sala\n")
+        if (nom.isspace() or len(nom) <= 0):
+            print("El nombre no puede omitirse")
+        else:
+            cupo=input("Seleccione el cupo\n")
+            if (cupo.isspace() or len(cupo) <= 0):
+                print("El cupo no puede omitirse")
+            else:
+                if int(cupo) <= 0:
+                    print("El cupo debe ser mayor que 0")
+                else:
+                    Salas=(nom,cupo)
+                    salas[clave_sala]=Salas
+                    try:
+                        with sqlite3.connect("Evidencia3.db") as conn:
+                            mi_cursor = conn.cursor()
+                            Salas=(clave_sala,nom,cupo)
+                            mi_cursor.execute("INSERT INTO salas VALUES(?,?,?)", Salas)
+                            print("Registro agregado exitosamente")
+                    except Error as e:
+                        print (e)
+                    except:
+                        print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+                    finally:
+                        conn.close()
+        
+    
+    if orden=="4":
+        matricula=max(list(clientes.keys()),default=2000)+1
+        cliente=input("Ingrese su nombre\n")
+        if (cliente.isspace() or len(cliente) <= 0):
+            print("El nombre no puede omitirse")
+        else:
+            clientes[matricula]={cliente}
+            try:
+                with sqlite3.connect("Evidencia3.db") as conn:
+                    mi_cursor = conn.cursor()
+                    Clientes=(matricula,cliente)
+                    mi_cursor.execute("INSERT INTO clientes VALUES(?,?)", Clientes)
+                    print("Registro agregado exitosamente")
+            except Error as e:
+                print (e)
+            except:
+                print(f"Se produjo el siguiente error: {sys.exc_info()[0]}")
+            finally:
+                conn.close()
+        
+    if orden=="5":
+        break
